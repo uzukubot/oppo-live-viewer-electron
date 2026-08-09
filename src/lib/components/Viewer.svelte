@@ -26,8 +26,6 @@
   let videoDims = $state<{ w: number; h: number } | null>(null);
   let videoEl = $state<HTMLVideoElement | null>(null);
   let videoEnded = $state(false);
-  /** 是否正在播放（默认不自动播放，先显示 HDR 封面；视频是 SDR，避免盖住封面）。 */
-  let videoPlaying = $state(false);
   /** 自动播放被浏览器策略拦截（视频仍在，等待点击播放）。 */
   let videoBlocked = $state(false);
   let playMode = $state<"once" | "loop">("once");
@@ -77,7 +75,6 @@
       videoError = false;
       videoDims = null;
       videoEnded = false;
-      videoPlaying = false;
       videoBlocked = false;
     }
     if (p) {
@@ -216,17 +213,16 @@
   }
 
   // ---- 视频控制 ----
-  /** 元数据就绪后只记录尺寸，不自动播放——先显示 HDR 封面，由用户点击播放。 */
+  /** 元数据就绪后自动起播一次，播完回到 HDR 封面（封面 JPEG 是完整文件，HDR 正常）。 */
   function onVideoMetadata() {
     if (!videoEl) return;
     videoDims = { w: videoEl.videoWidth, h: videoEl.videoHeight };
+    tryPlay();
   }
   /** 先静音起播以兼容自动播放策略，播放真正开始后若用户有声则恢复。 */
   function tryPlay() {
     if (!videoEl) return;
     const el = videoEl;
-    videoPlaying = true;
-    videoEnded = false;
     const wantSound = !muted;
     el.muted = true;
     el.play()
@@ -234,14 +230,12 @@
         if (wantSound && el === videoEl && !muted) el.muted = false;
       })
       .catch(() => {
-        // 播放被拦截：回到封面，显示"点击播放"
-        videoPlaying = false;
+        // 自动播放被浏览器策略拦截：视频保持挂载，显示"点击播放"
         videoBlocked = true;
       });
   }
   function onVideoError() {
     videoError = true;
-    videoPlaying = false;
   }
   /** 播一次：结束后回到封面图；循环模式：重新播放。 */
   function onVideoEnded() {
@@ -252,12 +246,12 @@
       }
     } else {
       videoEnded = true;
-      videoPlaying = false;
     }
   }
   function replay() {
     if (!videoEl) return;
     videoEl.currentTime = 0;
+    videoEnded = false;
     videoBlocked = false;
     tryPlay();
   }
@@ -337,7 +331,7 @@
   {#if videoUrl && !videoError}
     <div
       class="video-box"
-      class:hidden={!vl || videoEnded || !videoPlaying}
+      class:hidden={!vl || videoEnded}
       style={vl
         ? `left:${vl.x}px;top:${vl.y}px;width:${vl.boxW}px;height:${vl.boxH}px;`
         : ""}
@@ -354,6 +348,7 @@
         muted={muted}
         playsinline
         onloadedmetadata={onVideoMetadata}
+        oncanplay={tryPlay}
         onerror={onVideoError}
         onended={onVideoEnded}
         style={vl
@@ -363,22 +358,6 @@
       {#if videoBlocked}
         <div class="play-prompt">▶ 点击播放</div>
       {/if}
-    </div>
-  {/if}
-  {#if photo?.is_live && videoUrl && !videoError && vl && !videoPlaying && !videoEnded}
-    <div
-      class="play-prompt cover"
-      onclick={replay}
-      onkeydown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
-          e.preventDefault();
-          replay();
-        }
-      }}
-      role="button"
-      tabindex="0"
-    >
-      ▶ 播放 Live 视频
     </div>
   {/if}
   {#if photo?.is_live && videoError}
@@ -497,13 +476,6 @@
     border-radius: 999px;
     font-size: 13px;
     pointer-events: none;
-  }
-  .play-prompt.cover {
-    cursor: pointer;
-    pointer-events: auto;
-  }
-  .play-prompt.cover:hover {
-    background: rgba(40, 60, 120, 0.8);
   }
   .video-box video {
     position: absolute;

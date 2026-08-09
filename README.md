@@ -8,7 +8,7 @@ OPPO Live Photo / Ultra HDR 查看器。**Electron 自带完整 Chromium，能�
 
 - **Ultra HDR 静态图**：完整 JPEG（含 gain map）交给 Chromium 原生解码；SDR 屏只显示基础图（与 Chrome 一致），HDR 屏显示真 HDR。
 - **Live Photo**：`.live.jpeg` 切分为 JPEG + 内嵌 HEVC MP4，视频走平台解码（Windows 依赖系统 HEVC 解码器，macOS VideoToolbox 原生）。**封面 JPEG 以完整文件交给 Chromium**（不截断，保证 gain map 完整；Chromium 忽略 JPEG EOI 之后的 MP4 尾部），因此 Live 封面同样能显示真 HDR。
-- **Live 视频默认不自动播放**：先显示 HDR 封面，点"▶ 播放 Live 视频"才播（视频是 SDR，避免盖住 HDR 封面）；播完回到封面。
+- **Live 视频自动播放一次**：进 Live 图先静音自动播视频（视频是 SDR，会暂时盖住封面），播完回到 HDR 封面。
 - 流式扫描大文件夹：立即出列表、边扫边追加（每批 25 张）。
 - 文件名列表 / 缩略图网格、搜索、缩放/平移、滚轮翻页、拖拽打开、F12 诊断面板。
 
