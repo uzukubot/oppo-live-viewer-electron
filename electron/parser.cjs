@@ -212,10 +212,10 @@ async function fullMeta(p, id) {
   let jpeg;
   let mp4;
   if (mp4Offset != null) {
-    jpeg = data.subarray(0, mp4Offset);
-    // 剪掉 gain map EOI 之后的零填充，得到干净 JPEG
-    const eoi = jpeg.lastIndexOf(Buffer.from([0xff, 0xd9]));
-    if (eoi >= 0) jpeg = jpeg.subarray(0, eoi + 2);
+    // Live：整个文件作为 jpeg 交给浏览器（Chromium 忽略 JPEG EOI 之后的 MP4 尾部）。
+    // 不能截断：XMP 容器里 GainMap/MotionPhoto 的 Item:Length 以完整文件为基准，
+    // 截断会让 gain map 识别失败 → 封面退化为 SDR。
+    jpeg = data;
     mp4 = data.subarray(mp4Offset);
   } else {
     jpeg = data;

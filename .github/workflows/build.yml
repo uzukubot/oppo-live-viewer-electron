@@ -1,4 +1,4 @@
-name: Build Electron HDR (Windows portable)
+name: Build OPPO Live Viewer (Electron)
 
 on:
   push:
@@ -15,8 +15,23 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
+  build:
+    permissions:
+      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: "windows-latest"
+            build_cmd: "npx electron-builder --win portable"
+            artifact: "portable-windows"
+          - platform: "macos-latest" # Apple Silicon（用户仅有 ARM Mac）
+            build_cmd: "npx electron-builder --mac zip --arm64"
+            artifact: "portable-macos"
+          - platform: "ubuntu-22.04"
+            build_cmd: "npx electron-builder --linux AppImage"
+            artifact: "portable-linux"
+    runs-on: ${{ matrix.platform }}
 
     steps:
       - name: Checkout
@@ -35,18 +50,18 @@ jobs:
       - name: 构建前端
         run: npm run build
 
-      # electron-builder 产出单文件 portable exe（无需安装，双击即用）
-      - name: 构建 Windows portable
-        run: npx electron-builder --win portable
+      # electron-builder 按平台产出 portable 单文件
+      - name: 构建 ${{ matrix.platform }}
+        run: ${{ matrix.build_cmd }}
 
       - name: 取短 commit ID
         id: sha
         shell: bash # Windows runner 默认 PowerShell，需显式 bash 才能用 ${var::7} 子串
         run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
 
-      - name: 上传 portable exe 到 Actions Artifacts
+      - name: 上传产物到 Actions Artifacts
         uses: actions/upload-artifact@v7
         with:
-          name: portable-windows-${{ steps.sha.outputs.short }}
-          path: dist/*.exe
+          name: ${{ matrix.artifact }}-${{ steps.sha.outputs.short }}
+          path: dist/**
           if-no-files-found: error

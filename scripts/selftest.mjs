@@ -24,10 +24,10 @@ async function main() {
   console.log("full:", JSON.stringify({ off: meta.mp4_offset, rot: meta.video_rotation, jpeg_len: jpeg.length, mp4_len: mp4?.length }));
   assert.ok(meta.is_live && meta.mp4_offset != null);
   assert.strictEqual(meta.video_rotation, 0);
+  // Live：整个文件作为 jpeg 交给浏览器（含 MP4 尾部，Chromium 忽略之），保证 gain map 完整
   assert.strictEqual(jpeg[0], 0xff);
   assert.strictEqual(jpeg[1], 0xd8);
-  assert.strictEqual(jpeg[jpeg.length - 2], 0xff);
-  assert.strictEqual(jpeg[jpeg.length - 1], 0xd9);
+  assert.ok(jpeg.length > 10_000_000, "jpeg 应为完整文件（含 MP4 尾部）");
   assert.ok(mp4 && mp4.length > 8_000_000);
   if (meta.ultra_hdr?.gain_map_max != null) {
     console.log("  gain_map_max =", meta.ultra_hdr.gain_map_max, "（期望 ≈1.26315）");
