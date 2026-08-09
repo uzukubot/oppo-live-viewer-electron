@@ -1,5 +1,12 @@
 node_modules/
-dist/
+/build
+/.svelte-kit
+/dist
+/package
 *.log
 .DS_Store
 *.local
+.env
+.env.*
+vite.config.js.timestamp-*
+vite.config.ts.timestamp-*

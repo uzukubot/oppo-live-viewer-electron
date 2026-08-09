@@ -1,36 +1,51 @@
 {
   "name": "oppo-live-viewer-electron",
   "version": "0.1.0",
-  "description": "Electron HDR 验证原型：确认自带 Chromium 能输出真 HDR（Ultra HDR / gain map）",
-  "main": "main.js",
+  "description": "OPPO Live Photo / Ultra HDR 查看器（Electron 版，自带 Chromium 输出真 HDR）",
+  "type": "module",
+  "main": "electron/main.cjs",
   "license": "MIT",
   "scripts": {
-    "start": "electron .",
-    "dist:win": "electron-builder --win portable"
+    "dev": "concurrently -k \"vite dev\" \"wait-on tcp:1420 && electron . --dev\"",
+    "dev:app": "electron . --dev",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "dist:win": "npm run build && electron-builder --win portable",
+    "selftest": "node scripts/selftest.mjs"
+  },
+  "dependencies": {
+    "exifr": "^7.1.3",
+    "image-size": "^2.0.2"
   },
   "devDependencies": {
+    "@sveltejs/adapter-static": "^3.0.6",
+    "@sveltejs/kit": "^2.9.0",
+    "@sveltejs/vite-plugin-svelte": "^5.0.0",
+    "concurrently": "^10.0.4",
     "electron": "^43.3.0",
-    "electron-builder": "^26.0.12"
+    "electron-builder": "^26.0.12",
+    "svelte": "^5.0.0",
+    "svelte-check": "^4.0.0",
+    "typescript": "~5.6.2",
+    "vite": "^6.0.3",
+    "wait-on": "^9.0.1"
   },
   "build": {
     "appId": "com.uzukubot.oppo-live-viewer-electron",
-    "productName": "OPPO-Live-Viewer-HDR",
+    "productName": "OPPO-Live-Viewer",
     "directories": {
       "output": "dist"
     },
     "files": [
-      "main.js",
-      "preload.js",
-      "renderer.js",
-      "index.html",
-      "styles.css",
-      "assets/**"
+      "build/**",
+      "electron/**"
     ],
     "win": {
       "target": ["portable"]
     },
     "portable": {
-      "artifactName": "OPPO-Live-Viewer-HDR-${version}-portable.exe"
+      "artifactName": "OPPO-Live-Viewer-${version}-portable.exe"
     }
   }
 }

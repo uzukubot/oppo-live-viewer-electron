@@ -31,6 +31,10 @@ jobs:
       - name: 安装依赖
         run: npm ci
 
+      # 构建 SvelteKit 前端（GITHUB_SHA 注入 commit 号）
+      - name: 构建前端
+        run: npm run build
+
       # electron-builder 产出单文件 portable exe（无需安装，双击即用）
       - name: 构建 Windows portable
         run: npx electron-builder --win portable
