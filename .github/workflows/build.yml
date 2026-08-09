@@ -1,0 +1,48 @@
+name: Build Electron HDR (Windows portable)
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "*.md"
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: 安装依赖
+        run: npm ci
+
+      # electron-builder 产出单文件 portable exe（无需安装，双击即用）
+      - name: 构建 Windows portable
+        run: npx electron-builder --win portable
+
+      - name: 取短 commit ID
+        id: sha
+        shell: bash # Windows runner 默认 PowerShell，需显式 bash 才能用 ${var::7} 子串
+        run: echo "short=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: 上传 portable exe 到 Actions Artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: portable-windows-${{ steps.sha.outputs.short }}
+          path: dist/*.exe
+          if-no-files-found: error

@@ -1,0 +1,36 @@
+{
+  "name": "oppo-live-viewer-electron",
+  "version": "0.1.0",
+  "description": "Electron HDR 验证原型：确认自带 Chromium 能输出真 HDR（Ultra HDR / gain map）",
+  "main": "main.js",
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dist:win": "electron-builder --win portable"
+  },
+  "devDependencies": {
+    "electron": "^43.3.0",
+    "electron-builder": "^26.0.12"
+  },
+  "build": {
+    "appId": "com.uzukubot.oppo-live-viewer-electron",
+    "productName": "OPPO-Live-Viewer-HDR",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "renderer.js",
+      "index.html",
+      "styles.css",
+      "assets/**"
+    ],
+    "win": {
+      "target": ["portable"]
+    },
+    "portable": {
+      "artifactName": "OPPO-Live-Viewer-HDR-${version}-portable.exe"
+    }
+  }
+}

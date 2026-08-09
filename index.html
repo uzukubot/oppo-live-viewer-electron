@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="Content-Security-Policy"
+  content="default-src 'self' blob: data: viewer:; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: data: viewer:; media-src blob: viewer:; connect-src 'self' blob: viewer:" />
+<title>Electron HDR 验证</title>
+<link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header>
+    <div class="title">Electron HDR / Ultra HDR 验证原型</div>
+    <div class="actions">
+      <button id="openBtn">打开 Ultra HDR 图片…</button>
+      <input type="file" id="fileInput" accept=".jpg,.jpeg,.heic,.avif" multiple hidden />
+    </div>
+  </header>
+
+  <section id="diag">
+    <div class="diag-grid">
+      <div class="cell"><span class="k">Electron</span><span class="v" id="vElectron">-</span></div>
+      <div class="cell"><span class="k">Chromium</span><span class="v" id="vChrome">-</span></div>
+      <div class="cell"><span class="k">dynamic-range: high</span><span class="v" id="vDynamicRange">-</span></div>
+      <div class="cell"><span class="k">color-gamut: p3</span><span class="v" id="vP3">-</span></div>
+      <div class="cell"><span class="k">gain map (hdrgm)</span><span class="v" id="vGainmap">-</span></div>
+    </div>
+    <div class="probe">
+      <span class="k">宽色域探针</span>
+      <div class="tile" style="background: rgb(255 0 0)"></div>
+      <div class="tile" style="background: color(display-p3 1 0 0)"></div>
+      <span class="hint">两格同为纯红：左 sRGB / 右 display-p3。HDR 屏上右侧应明显更鲜艳更亮；SDR 屏上几乎一样。</span>
+    </div>
+    <div class="hint2">
+      对比方法：把右侧原图拖进 Chrome 或同屏打开同一文件。真 HDR 生效 = 右侧(原图)比左侧(SDR 基础图)
+      高光更亮/更"炸"，且与 Chrome 一致；两者一样 = 未走 HDR 路径。<br />
+      测试数据不入库：点右上角"打开 Ultra HDR 图片…"加载你自己的 Ultra HDR / .live.jpeg 测试图。
+    </div>
+  </section>
+
+  <main>
+    <figure class="panel">
+      <figcaption>SDR 基础图（createImageBitmap 解码 → sRGB canvas）</figcaption>
+      <div class="imgbox"><img id="imgSdr" alt="SDR base" /></div>
+    </figure>
+    <figure class="panel">
+      <figcaption>Ultra HDR 原图（Chromium 原生解码 + gain map）</figcaption>
+      <div class="imgbox"><img id="imgHdr" alt="Ultra HDR" /></div>
+    </figure>
+  </main>
+
+  <section id="live" hidden>
+    <div class="live-head">
+      <span class="k">Live 视频部分（HEVC / 平台解码）</span>
+      <span class="v" id="vVideo">加载中…</span>
+    </div>
+    <div class="imgbox"><video id="video" controls muted playsinline></video></div>
+  </section>
+
+  <script src="renderer.js"></script>
+</body>
+</html>

@@ -1,0 +1,176 @@
+:root {
+  color-scheme: dark;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: #131313;
+  color: #eee;
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 16px;
+  background: #1d1d1f;
+  border-bottom: 1px solid #333;
+}
+
+.title {
+  font-weight: 600;
+}
+
+button {
+  background: #2d7ff9;
+  border: none;
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+button:hover {
+  background: #4a92ff;
+}
+
+#diag {
+  padding: 10px 16px;
+  background: #19191b;
+  border-bottom: 1px solid #333;
+  font-size: 13px;
+}
+
+.diag-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 24px;
+}
+
+.cell {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.cell .k {
+  color: #999;
+}
+
+.cell .v {
+  font-family: ui-monospace, monospace;
+  color: #7cf57c;
+  font-weight: 600;
+}
+
+.probe {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.probe .k {
+  color: #999;
+}
+
+.probe .tile {
+  border: 1px solid #444;
+  width: 60px;
+  height: 60px;
+}
+
+.hint {
+  color: #aaa;
+  max-width: 520px;
+}
+
+.hint2 {
+  margin-top: 8px;
+  color: #d8b65a;
+  line-height: 1.5;
+}
+
+main {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+
+.panel {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid #333;
+}
+
+.panel:last-child {
+  border-right: none;
+}
+
+.panel figcaption {
+  text-align: center;
+  padding: 6px;
+  color: #999;
+  font-size: 13px;
+  border-bottom: 1px solid #2a2a2a;
+}
+
+.imgbox {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: #0d0d0d;
+}
+
+.imgbox img {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+#live {
+  background: #19191b;
+  border-top: 1px solid #333;
+  padding: 8px 16px;
+}
+
+#live[hidden] {
+  display: none;
+}
+
+.live-head {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  font-size: 13px;
+  margin-bottom: 6px;
+}
+
+.live-head .k {
+  color: #999;
+}
+
+.live-head .v {
+  font-family: ui-monospace, monospace;
+  color: #7cf57c;
+}
+
+#video {
+  width: 100%;
+  max-height: 220px;
+  background: #000;
+}
