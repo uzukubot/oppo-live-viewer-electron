@@ -25,12 +25,15 @@ jobs:
           - platform: "windows-latest"
             build_cmd: "npx electron-builder --win portable -p never"
             artifact: "portable-windows"
+            artifact_path: "dist/*.exe"
           - platform: "macos-latest" # Apple Silicon（用户仅有 ARM Mac）
             build_cmd: "npx electron-builder --mac zip --arm64 -p never"
             artifact: "portable-macos"
+            artifact_path: "dist/*.zip"
           - platform: "ubuntu-22.04"
             build_cmd: "npx electron-builder --linux AppImage -p never"
             artifact: "portable-linux"
+            artifact_path: "dist/*.AppImage"
     runs-on: ${{ matrix.platform }}
 
     steps:
@@ -63,5 +66,5 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact }}-${{ steps.sha.outputs.short }}
-          path: dist/**
+          path: ${{ matrix.artifact_path }}
           if-no-files-found: error
