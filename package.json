@@ -2,6 +2,7 @@
   "name": "oppo-live-viewer-electron",
   "version": "0.1.0",
   "description": "OPPO Live Photo / Ultra HDR 查看器（Electron 版，自带 Chromium 输出真 HDR）",
+  "author": "uzukubot",
   "type": "module",
   "main": "electron/main.cjs",
   "license": "MIT",

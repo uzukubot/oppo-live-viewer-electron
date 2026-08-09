@@ -23,13 +23,13 @@ jobs:
       matrix:
         include:
           - platform: "windows-latest"
-            build_cmd: "npx electron-builder --win portable"
+            build_cmd: "npx electron-builder --win portable -p never"
             artifact: "portable-windows"
           - platform: "macos-latest" # Apple Silicon（用户仅有 ARM Mac）
-            build_cmd: "npx electron-builder --mac zip --arm64"
+            build_cmd: "npx electron-builder --mac zip --arm64 -p never"
             artifact: "portable-macos"
           - platform: "ubuntu-22.04"
-            build_cmd: "npx electron-builder --linux AppImage"
+            build_cmd: "npx electron-builder --linux AppImage -p never"
             artifact: "portable-linux"
     runs-on: ${{ matrix.platform }}
 
