@@ -12,6 +12,8 @@ declare global {
         cb: (payload: { folder: string; photos: import("./types").PhotoMeta[] }) => void,
       ): () => void;
       onScanDone(cb: (payload: { folder: string }) => void): () => void;
+      onScanMeta(cb: (payload: { folder: string; photos: import("./types").PhotoMeta[] }) => void): () => void;
+      prioritizeScan(id: number): void;
       getPathForFile(file: File): string;
       onOpenPath(cb: (path: string) => void): () => void;
       getPendingOpenPath(): Promise<string | null>;

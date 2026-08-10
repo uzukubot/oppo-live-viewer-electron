@@ -28,6 +28,17 @@ async function ensureScanListeners() {
     if (payload.folder !== app.folder) return;
     app.scanning = false;
   });
+  // 徽标异步填充：主进程读文件头后逐批推送，按 id 合并进已有条目
+  window.api.onScanMeta((payload: { folder: string; photos: PhotoMeta[] }) => {
+    if (payload.folder !== app.folder) return;
+    const byId = new Map(payload.photos.map((p) => [p.id, p]));
+    app.photos = app.photos.map((p) => byId.get(p.id) ?? p);
+  });
+}
+
+/** 把指定照片的徽标解析排到最前（用户选中远处的图时调用）。 */
+export function prioritizeScan(id: number) {
+  window.api.prioritizeScan(id);
 }
 
 /** 打开指定文件夹：立即出第一批文件名，后台继续流式填充。 */

@@ -6,7 +6,7 @@
   import Viewer from "$lib/components/Viewer.svelte";
   import StatusBar from "$lib/components/StatusBar.svelte";
   import Welcome from "$lib/components/Welcome.svelte";
-  import { openFolder, openPath } from "$lib/actions";
+  import { openFolder, openPath, prioritizeScan } from "$lib/actions";
 
   /** 拖拽调整侧边栏宽度。 */
   function startResize(e: PointerEvent) {
@@ -56,6 +56,17 @@
         break;
     }
   }
+
+  // 选中照片时，把它的徽标解析排到最前（保证"看到这张图时徽标已在"）
+  let lastPrioId = -1;
+  $effect(() => {
+    const i = app.index;
+    const p = app.photos[i];
+    if (p && p.id !== lastPrioId) {
+      lastPrioId = p.id;
+      prioritizeScan(p.id);
+    }
+  });
 
   onMount(() => {
     // 拖拽文件/文件夹到窗口：经 webUtils 取真实路径后打开（打开图片 + 侧边栏列出其目录）

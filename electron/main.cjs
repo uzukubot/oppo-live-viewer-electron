@@ -111,40 +111,107 @@ function listImagePaths(dir) {
     .sort((a, b) => naturalCompare(path.basename(a), path.basename(b)));
 }
 
-/** 后台流式扫描：每 25 个推一批 scan-batch，结束推 scan-done。代际不符即停。 */
-async function scanStream(folder, generation) {
-  const BATCH = 25;
-  let batch = [];
-  for (;;) {
-    const item = (() => {
-      if (!store.scan || store.scan.generation !== generation) return null;
-      if (store.scan.index >= store.scan.paths.length) return { done: true };
-      const p = store.scan.paths[store.scan.index];
-      store.scan.index += 1;
-      return { id: store.registerPath(p), path: p, done: false };
-    })();
-    if (!item) return;
-    if (item.done) break;
-    try {
-      const meta = await scanPhoto(item.path, item.id);
-      batch.push(meta);
-      if (batch.length >= BATCH) {
-        send('scan-batch', { folder, photos: batch });
-        batch = [];
-      }
-    } catch {
-      /* 单个文件失败跳过 */
-    }
+/** 快速列表元数据：只从文件名/stat 得出，不做文件头读取（徽标稍后异步补齐）。 */
+function quickMeta(p, id) {
+  const name = path.basename(p);
+  let size = 0;
+  try {
+    size = fs.statSync(p).size;
+  } catch {}
+  return {
+    id,
+    path: p,
+    name,
+    width: 0,
+    height: 0,
+    orientation: 1,
+    // 文件名快速判定 Live（.live.jpeg 后缀）；精确判定（MotionPhoto 标记）由异步解析补齐
+    is_live: /\.live\.jpeg$/i.test(name),
+    mp4_offset: null,
+    video_rotation: 0,
+    size,
+    date: null,
+    ultra_hdr: null,
+  };
+}
+
+/**
+ * 列表阶段：分批推送文件名元数据（不读文件头，列表秒出）。
+ * 结束后发 scan-done（前端据此把"正在扫描"关掉，徽标继续异步填充）。
+ */
+async function listStream(folder, generation) {
+  const BATCH = 100;
+  for (let i = 0; i < store.scan.paths.length; i += BATCH) {
+    const s = store.scan;
+    if (!s || s.generation !== generation) return;
+    const metas = s.paths.slice(i, i + BATCH).map((p, j) => quickMeta(p, s.metaQueue[i + j]));
+    s.listSentIndex = Math.max(s.listSentIndex, i + metas.length);
+    send('scan-batch', { folder, photos: metas });
+    if (i + BATCH < s.paths.length) await new Promise((r) => setImmediate(r));
   }
-  if (batch.length) send('scan-batch', { folder, photos: batch });
   send('scan-done', { folder });
+}
+
+/**
+ * 徽标阶段：异步读文件头解析 HDR/Live 精判/尺寸/EXIF，scan-meta 逐批更新前端。
+ * - 已解析过的（被 load_photo 全量解析过）跳过，不重复解析；
+ * - 等待列表阶段先把该条目的快照发出去，避免 scan-meta 早于 scan-batch。
+ */
+async function metaStream(folder, generation) {
+  const BATCH = 10;
+  let batch = [];
+  const flush = () => {
+    if (batch.length) {
+      send('scan-meta', { folder, photos: batch });
+      batch = [];
+    }
+  };
+  for (;;) {
+    const s = store.scan;
+    if (!s || s.generation !== generation) return;
+    while (s.metaIndex < s.metaQueue.length && s.parsed.has(s.metaQueue[s.metaIndex])) s.metaIndex++;
+    if (s.metaIndex >= s.metaQueue.length) {
+      flush();
+      return;
+    }
+    // 等列表阶段已把该条目快照发出，避免 scan-meta 早于 scan-batch
+    if (s.metaIndex >= s.listSentIndex) {
+      await new Promise((r) => setTimeout(r, 20));
+      continue;
+    }
+    const id = s.metaQueue[s.metaIndex];
+    const p = store.path(id);
+    if (!p) {
+      s.metaIndex++;
+      continue;
+    }
+    try {
+      const meta = await scanPhoto(p, id);
+      s.parsed.add(id);
+      batch.push(meta);
+      if (batch.length >= BATCH) flush();
+    } catch {
+      /* 单文件解析失败跳过 */
+    }
+    s.metaIndex++;
+  }
 }
 
 function beginScan(folder, paths) {
   const total = paths.length;
   const generation = ++scanToken;
-  store.scan = { paths, index: 0, generation };
-  scanStream(folder, generation); // 异步，后台继续
+  // 同步注册所有 id（纯内存操作，快）；两阶段后台继续
+  const ids = paths.map((p) => store.registerPath(p));
+  store.scan = {
+    paths,
+    generation,
+    metaQueue: ids,
+    metaIndex: 0,
+    parsed: new Set(),
+    listSentIndex: 0,
+  };
+  listStream(folder, generation);
+  metaStream(folder, generation);
   return total;
 }
 
@@ -178,7 +245,20 @@ ipcMain.handle('load-photo', async (_e, id) => {
   if (!p) throw new Error(`未知 id: ${id}`);
   const { meta, jpeg, mp4 } = await fullMeta(p, id);
   store.insert(id, { jpeg, mp4 });
+  // 已全量解析过 → 徽标阶段跳过，不重复解析
+  if (store.scan) store.scan.parsed.add(id);
   return meta;
+});
+
+// 优先解析指定 id 的徽标（用户选中某张很远的图时，把它排到徽标队列最前）
+ipcMain.handle('prioritize-scan', (_e, id) => {
+  const s = store.scan;
+  if (!s || !Number.isInteger(id) || s.parsed.has(id)) return;
+  const idx = s.metaQueue.indexOf(id);
+  if (idx > s.metaIndex) {
+    s.metaQueue.splice(idx, 1);
+    s.metaQueue.splice(s.metaIndex, 0, id);
+  }
 });
 
 ipcMain.handle('pick-folder', async () => {
@@ -341,7 +421,7 @@ function createWindow() {
             title: document.title,
             photos: (document.querySelector('[data-testid=photos-count]') || {}).textContent || "",
             diag: (document.querySelector('[data-testid=diag]') || {}).textContent || "",
-            bodyText: document.body.innerText.slice(0, 200)
+            bodyText: document.body.innerText.slice(0, 1500)
           })`);
           fs.writeFileSync(out.replace(/\.png$/, '.json'), JSON.stringify(state, null, 2));
         } catch (e) {
