@@ -18,6 +18,12 @@ contextBridge.exposeInMainWorld('api', {
     return () => ipcRenderer.removeListener('scan-done', l);
   },
   getPathForFile: (file) => webUtils.getPathForFile(file),
+  onOpenPath: (cb) => {
+    const l = (_e, payload) => cb(payload);
+    ipcRenderer.on('open-external-path', l);
+    return () => ipcRenderer.removeListener('open-external-path', l);
+  },
+  getPendingOpenPath: () => ipcRenderer.invoke('get-pending-open-path'),
 });
 
 contextBridge.exposeInMainWorld('env', {

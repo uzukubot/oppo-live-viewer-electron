@@ -44,6 +44,13 @@
       "build/**",
       "electron/**"
     ],
+    "fileAssociations": [
+      {
+        "ext": ["jpg", "jpeg", "png", "webp", "avif", "gif", "bmp"],
+        "name": "Image",
+        "description": "图片"
+      }
+    ],
     "win": {
       "target": ["portable"]
     },

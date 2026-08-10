@@ -58,27 +58,57 @@
   }
 
   onMount(() => {
-    // 拖拽文件/文件夹到窗口：经 webUtils 取真实路径后打开
+    // 拖拽文件/文件夹到窗口：经 webUtils 取真实路径后打开（打开图片 + 侧边栏列出其目录）
     function onDrop(e: DragEvent) {
-      const f = e.dataTransfer?.files?.[0];
-      if (!f) return;
-      const p = window.api.getPathForFile(f);
-      if (p) openPath(p);
+      e.preventDefault();
+      try {
+        const dt = e.dataTransfer;
+        if (!dt) return;
+        // 优先 items（文件夹场景 files 可能为空）；files 兜底
+        let file: File | null = null;
+        if (dt.items && dt.items.length) {
+          for (const item of Array.from(dt.items)) {
+            const f = item.getAsFile();
+            if (f) {
+              file = f;
+              break;
+            }
+          }
+        }
+        if (!file && dt.files && dt.files.length) file = dt.files[0];
+        if (!file) return;
+        const p = window.api.getPathForFile(file);
+        if (p) {
+          openPath(p);
+        } else {
+          console.warn("无法解析拖入路径:", file.name);
+        }
+      } catch (err) {
+        console.error("drop 处理失败", err);
+      }
     }
     window.addEventListener("dragover", (e) => e.preventDefault());
-    window.addEventListener("drop", (e) => {
-      e.preventDefault();
-      onDrop(e);
-    });
+    window.addEventListener("drop", onDrop);
+
+    // 右键"打开方式" / 命令行传参：主进程把路径发给渲染器（应用已在运行时用事件）
+    const unOpen = window.api.onOpenPath((p) => openPath(p));
 
     window.addEventListener("keydown", onKey);
 
-    // 恢复上次打开的文件夹
-    const last = localStorage.getItem("lastFolder");
-    if (last && !app.folder) {
-      openFolder(last);
-    }
+    // 首次启动：优先拉取外部传入的路径（打开图片 + 列出其目录）；否则恢复上次文件夹
+    window.api.getPendingOpenPath().then((pendingExternal) => {
+      if (pendingExternal) {
+        openPath(pendingExternal);
+      } else {
+        const last = localStorage.getItem("lastFolder");
+        if (last && !app.folder) {
+          openFolder(last);
+        }
+      }
+    });
+
     return () => {
+      unOpen();
       window.removeEventListener("keydown", onKey);
     };
   });

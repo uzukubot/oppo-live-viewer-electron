@@ -13,6 +13,8 @@ declare global {
       ): () => void;
       onScanDone(cb: (payload: { folder: string }) => void): () => void;
       getPathForFile(file: File): string;
+      onOpenPath(cb: (path: string) => void): () => void;
+      getPendingOpenPath(): Promise<string | null>;
     };
     env: {
       electron: string;

@@ -40,6 +40,56 @@ const isDev = process.argv.includes('--dev') || !!process.env.VITE_DEV_SERVER_UR
 const screenshotArg = process.argv.find((a) => a.startsWith('--screenshot='));
 const openPathArg = process.argv.find((a) => a.startsWith('--open-path='));
 
+// 待转发给渲染器的路径（右键"打开方式" / 拖拽 / 命令行传参），窗口就绪后发送
+let pendingPath = null;
+
+/** 从 argv 里挑出用户传的文件/文件夹（跳过可执行文件与标志位）。 */
+function extractPathFromArgv(argv) {
+  for (let i = 1; i < argv.length; i++) {
+    const a = argv[i];
+    if (!a || a.startsWith('-') || a === '.') continue;
+    let stat = null;
+    try {
+      stat = fs.statSync(a);
+    } catch {
+      continue;
+    }
+    if (stat.isDirectory()) return a;
+    if (stat.isFile() && isSupported(path.basename(a))) return a;
+  }
+  return null;
+}
+
+/** 把外部传入的路径交给渲染器打开（未就绪则排队）。 */
+function sendOpenPath(p) {
+  if (!p) return;
+  if (mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isLoading()) {
+    mainWindow.webContents.send('open-external-path', p);
+  } else {
+    pendingPath = p;
+  }
+}
+
+// 单实例：再次启动（右键"打开方式"）时把参数交给已运行实例
+const gotLock = app.requestSingleInstanceLock();
+if (!gotLock) {
+  app.quit();
+} else {
+  app.on('second-instance', (_e, argv) => {
+    const p = extractPathFromArgv(argv);
+    if (p) sendOpenPath(p);
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+  // macOS：Finder "打开方式" / open 命令
+  app.on('open-file', (e, p) => {
+    e.preventDefault();
+    sendOpenPath(p);
+  });
+}
+
 // ── 工具 ──
 
 function send(channel, payload) {
@@ -137,6 +187,13 @@ ipcMain.handle('pick-folder', async () => {
     title: '选择照片文件夹',
   });
   return r.canceled || r.filePaths.length === 0 ? null : r.filePaths[0];
+});
+
+// 渲染器就绪后主动拉取排队的外部路径（避免 did-finish-load 事件时序竞态）
+ipcMain.handle('get-pending-open-path', () => {
+  const p = pendingPath;
+  pendingPath = null;
+  return p;
 });
 
 // ── viewer:// 协议 ──
@@ -245,6 +302,13 @@ function createWindow() {
     console.error('[main] renderer gone:', JSON.stringify(details));
   });
 
+  // 防御：拖入文件被 Chromium 当作导航时阻止（应走 openPath 处理）
+  mainWindow.webContents.on('will-navigate', (e, url) => {
+    if (url.startsWith('file:') || url.startsWith('viewer://local/load/')) {
+      e.preventDefault();
+    }
+  });
+
   loadFrontend(mainWindow);
 
   // 测试钩子：--open-path=<目录> 在加载后注入 lastFolder 并刷新，自动走打开流程
@@ -292,6 +356,9 @@ function createWindow() {
 app.whenReady().then(() => {
   registerViewerProtocol();
   createWindow();
+  // 首次启动带文件参数（右键"打开方式" / 命令行传参）
+  const argvPath = extractPathFromArgv(process.argv);
+  if (argvPath) pendingPath = argvPath;
   // 兜底：截图/测试场景强制退出，避免无头挂死
   if (screenshotArg) {
     setTimeout(() => {
