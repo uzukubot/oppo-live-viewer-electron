@@ -9,10 +9,11 @@ declare global {
       loadPhoto(id: number): Promise<import("./types").PhotoMeta>;
       pickFolder(): Promise<string | null>;
       onScanBatch(
-        cb: (payload: { folder: string; photos: import("./types").PhotoMeta[] }) => void,
+        cb: (payload: { folder: string; photos: import("./types").PhotoMeta[]; dynamic?: boolean }) => void,
       ): () => void;
       onScanDone(cb: (payload: { folder: string }) => void): () => void;
       onScanMeta(cb: (payload: { folder: string; photos: import("./types").PhotoMeta[] }) => void): () => void;
+      onScanRemove(cb: (payload: { folder: string; ids: number[] }) => void): () => void;
       prioritizeScan(id: number): void;
       getPathForFile(file: File): string;
       onOpenPath(cb: (path: string) => void): () => void;

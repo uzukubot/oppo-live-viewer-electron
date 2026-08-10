@@ -50,3 +50,29 @@ export function formatDate(d: string | null): string {
 export function rotationTransform(deg: number): string {
   return `rotate(${deg}deg)`;
 }
+
+/** 自然排序：photo2 < photo10（与后端 parser.cjs 一致，动态新增时保持列表顺序）。 */
+export function naturalCompare(a: string, b: string): number {
+  const re = /(\d+)|(\D+)/g;
+  const ta = (a || "").toLowerCase().match(re) || [];
+  const tb = (b || "").toLowerCase().match(re) || [];
+  const n = Math.max(ta.length, tb.length);
+  for (let i = 0; i < n; i++) {
+    const sa = ta[i] || "";
+    const sb = tb[i] || "";
+    if (sa === sb) continue;
+    const na = /^\d+$/.test(sa);
+    const nb = /^\d+$/.test(sb);
+    if (na && nb) {
+      const da = parseInt(sa, 10);
+      const db = parseInt(sb, 10);
+      if (da !== db) return da - db;
+      if (sa.length !== sb.length) return sa.length - sb.length;
+      continue;
+    }
+    if (na) return -1;
+    if (nb) return 1;
+    return sa < sb ? -1 : 1;
+  }
+  return 0;
+}

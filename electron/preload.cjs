@@ -22,6 +22,11 @@ contextBridge.exposeInMainWorld('api', {
     ipcRenderer.on('scan-meta', l);
     return () => ipcRenderer.removeListener('scan-meta', l);
   },
+  onScanRemove: (cb) => {
+    const l = (_e, payload) => cb(payload);
+    ipcRenderer.on('scan-remove', l);
+    return () => ipcRenderer.removeListener('scan-remove', l);
+  },
   prioritizeScan: (id) => ipcRenderer.invoke('prioritize-scan', id),
   getPathForFile: (file) => webUtils.getPathForFile(file),
   onOpenPath: (cb) => {

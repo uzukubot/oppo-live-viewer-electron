@@ -172,7 +172,9 @@ async function metaStream(folder, generation) {
     while (s.metaIndex < s.metaQueue.length && s.parsed.has(s.metaQueue[s.metaIndex])) s.metaIndex++;
     if (s.metaIndex >= s.metaQueue.length) {
       flush();
-      return;
+      // 队列空：空闲轮询等待动态新增的文件（或被新扫描替换时退出）
+      await new Promise((r) => setTimeout(r, 200));
+      continue;
     }
     // 等列表阶段已把该条目快照发出，避免 scan-meta 早于 scan-batch
     if (s.metaIndex >= s.listSentIndex) {
@@ -203,16 +205,80 @@ function beginScan(folder, paths) {
   // 同步注册所有 id（纯内存操作，快）；两阶段后台继续
   const ids = paths.map((p) => store.registerPath(p));
   store.scan = {
+    folder,
     paths,
     generation,
     metaQueue: ids,
     metaIndex: 0,
     parsed: new Set(),
     listSentIndex: 0,
+    idByPath: new Map(paths.map((p, i) => [p, ids[i]])),
   };
   listStream(folder, generation);
   metaStream(folder, generation);
+  startFolderWatcher(folder, generation);
   return total;
+}
+
+// ── 文件夹监听：动态增删文件时更新列表 ──
+
+let folderWatcher = null;
+
+function closeWatcher() {
+  if (folderWatcher) {
+    try {
+      folderWatcher.close();
+    } catch {}
+    folderWatcher = null;
+  }
+}
+
+function startFolderWatcher(folder, generation) {
+  closeWatcher();
+  let timer = null;
+  try {
+    folderWatcher = fs.watch(folder, { persistent: false }, () => {
+      // 防抖：保存/重命名会触发多次事件
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => reconcileFolder(folder, generation), 300);
+    });
+    folderWatcher.on("error", () => closeWatcher());
+  } catch (e) {
+    console.error("[watch] 无法监听文件夹:", e.message);
+    folderWatcher = null;
+  }
+}
+
+/** 重新列出文件夹，与当前列表 diff：新增推送 scan-batch(dynamic)，删除推送 scan-remove。 */
+function reconcileFolder(folder, generation) {
+  const s = store.scan;
+  if (!s || s.generation !== generation || s.folder !== folder) return;
+  let newPaths;
+  try {
+    newPaths = listImagePaths(folder);
+  } catch {
+    return; // 文件夹可能已被删除
+  }
+  const oldSet = new Set(s.paths);
+  const newSet = new Set(newPaths);
+  const added = newPaths.filter((p) => !oldSet.has(p));
+  const removed = s.paths.filter((p) => !newSet.has(p));
+
+  if (added.length) {
+    const metas = added.map((p) => {
+      const id = store.registerPath(p);
+      s.metaQueue.push(id); // 加入徽标解析队列（metaStream 空闲轮询会接住）
+      s.idByPath.set(p, id);
+      return quickMeta(p, id);
+    });
+    s.listSentIndex = Math.max(s.listSentIndex, s.metaQueue.length);
+    send("scan-batch", { folder, photos: metas, dynamic: true });
+  }
+  if (removed.length) {
+    const ids = removed.map((p) => s.idByPath.get(p)).filter((id) => id != null);
+    if (ids.length) send("scan-remove", { folder, ids });
+  }
+  s.paths = newPaths;
 }
 
 // ── IPC（对应 Tauri 命令）──
@@ -449,5 +515,6 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  closeWatcher();
   app.quit();
 });

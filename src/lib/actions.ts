@@ -1,5 +1,5 @@
 import { openPath as apiOpenPath, startScan } from "./api";
-import type { PhotoMeta } from "./types";
+import { naturalCompare, type PhotoMeta } from "./types";
 import { app, setPhotos } from "./state.svelte";
 import { photoCache } from "./viewer/photoCache";
 
@@ -20,9 +20,19 @@ let listenersReady = false;
 async function ensureScanListeners() {
   if (listenersReady) return;
   listenersReady = true;
-  window.api.onScanBatch((payload: { folder: string; photos: PhotoMeta[] }) => {
+  window.api.onScanBatch((payload: { folder: string; photos: PhotoMeta[]; dynamic?: boolean }) => {
     if (payload.folder !== app.folder) return; // 忽略旧扫描的迟到批次
+    const curId = app.photos[app.index]?.id;
     app.photos = [...app.photos, ...payload.photos];
+    // 动态新增（文件夹监听）时保持列表按文件名自然排序，当前照片跟随
+    if (payload.dynamic) {
+      app.scanTotal += payload.photos.length;
+      app.photos = [...app.photos].sort((a, b) => naturalCompare(a.name, b.name));
+      if (curId != null) {
+        const i = app.photos.findIndex((p) => p.id === curId);
+        if (i >= 0) app.index = i;
+      }
+    }
   });
   window.api.onScanDone((payload: { folder: string }) => {
     if (payload.folder !== app.folder) return;
@@ -33,6 +43,20 @@ async function ensureScanListeners() {
     if (payload.folder !== app.folder) return;
     const byId = new Map(payload.photos.map((p) => [p.id, p]));
     app.photos = app.photos.map((p) => byId.get(p.id) ?? p);
+  });
+  // 文件夹里文件被删除：移除对应项并修正当前索引
+  window.api.onScanRemove((payload: { folder: string; ids: number[] }) => {
+    if (payload.folder !== app.folder) return;
+    const idSet = new Set(payload.ids);
+    app.scanTotal = Math.max(0, app.scanTotal - payload.ids.length);
+    const curId = app.photos[app.index]?.id;
+    app.photos = app.photos.filter((p) => !idSet.has(p.id));
+    if (curId != null) {
+      const i = app.photos.findIndex((p) => p.id === curId);
+      app.index = i >= 0 ? i : Math.max(0, Math.min(app.index, app.photos.length - 1));
+    } else {
+      app.index = Math.max(0, Math.min(app.index, app.photos.length - 1));
+    }
   });
 }
 
